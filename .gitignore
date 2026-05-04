@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Build artifacts
+build/
+dist/
+*.spec.bak
+
+# IDE / Editor
+.claude/
+.vscode/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test output
+*.epub
+**.partial
+
+# Local environment
+.env

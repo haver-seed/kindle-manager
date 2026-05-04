@@ -1,0 +1,16 @@
+[project]
+name = "kindle-manager"
+version = "0.1.0"
+description = "Kindle Book Manager - Desktop GUI Application"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.5",
+    "ebooklib>=0.18",
+]
+
+[project.optional-dependencies]
+# Calibre is optional; install separately from https://calibre-ebook.com/download
+# ebooklib enables built-in MOBI/AZW3 -> EPUB conversion
+
+[project.scripts]
+kindle-manager = "kindle_manager.main:main"

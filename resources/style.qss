@@ -1,0 +1,75 @@
+/* Kindle Manager - Cream Light Theme */
+
+/* Scrollbars */
+QScrollBar:vertical {
+    background: #f0ece4;
+    width: 8px;
+    margin: 0;
+}
+QScrollBar::handle:vertical {
+    background: #c5bfb2;
+    border-radius: 4px;
+    min-height: 30px;
+}
+QScrollBar::handle:vertical:hover {
+    background: #a8a292;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QScrollBar:horizontal {
+    background: #f0ece4;
+    height: 8px;
+}
+QScrollBar::handle:horizontal {
+    background: #c5bfb2;
+    border-radius: 4px;
+    min-width: 30px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: #a8a292;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0;
+}
+
+/* Tooltips */
+QToolTip {
+    background: #fffef9;
+    color: #3d3830;
+    border: 1px solid #d5cebf;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Splitter */
+QSplitter::handle {
+    background: #e0d8c8;
+    width: 2px;
+}
+
+/* ComboBox dropdown */
+QComboBox QAbstractItemView {
+    background: #ffffff;
+    color: #3d3830;
+    selection-background-color: #dce8d8;
+    selection-color: #3d3830;
+    border: 1px solid #d5cebf;
+}
+
+/* Message box */
+QMessageBox {
+    background: #faf6f0;
+    color: #3d3830;
+}
+QMessageBox QPushButton {
+    background: #7a9a7a;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 20px;
+    font-size: 12px;
+}
+QMessageBox QPushButton:hover {
+    background: #8aae8a;
+}
