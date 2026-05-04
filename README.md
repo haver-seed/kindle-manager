@@ -28,7 +28,7 @@ python -m kindle_manager.main
 - Python >= 3.10
 - PySide6 >= 6.5
 - ebooklib >= 0.18
-- Calibre（可选，用于全格式转换）
+- [Calibre](https://calibre-ebook.com/download)（可选，用于全格式转换）
 
 ## 打包
 
