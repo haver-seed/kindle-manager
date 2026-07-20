@@ -1,20 +1,27 @@
-import json
 import csv
+import hashlib
+import json
 from pathlib import Path
 
 from kindle_manager.models.clipping import Clipping
 from kindle_manager.core.clippings import group_by_book
 
 
-def export_markdown(clippings: list[Clipping], output_dir: str | Path):
+def export_markdown(clippings: list[Clipping], output_dir: str | Path) -> dict[str, Path]:
     """Export clippings as Markdown files, one per book."""
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     groups = group_by_book(clippings)
 
+    names = _unique_filenames(groups.keys())
+    reserved_paths: set[str] = set()
+    exported: dict[str, Path] = {}
     for book_title, clips in groups.items():
-        safe_name = _safe_filename(book_title)
-        path = out / f"{safe_name}.md"
+        safe_name = names[book_title]
+        path = _available_path(out / f"{safe_name}.md", reserved_paths)
+        safe_name = path.stem
+        names[book_title] = safe_name
+        exported[book_title] = path
         lines = [f"# {book_title}", ""]
 
         # Sort by date
@@ -35,12 +42,13 @@ def export_markdown(clippings: list[Clipping], output_dir: str | Path):
         path.write_text("\n".join(lines), encoding="utf-8")
 
     # Write index
-    index_path = out / "README.md"
+    index_path = _available_path(out / "Kindle Notes Index.md", reserved_paths)
     index_lines = ["# Kindle Notes Index", ""]
     for book_title in groups:
-        safe_name = _safe_filename(book_title)
+        safe_name = names[book_title]
         index_lines.append(f"- [{book_title}]({safe_name}.md)")
     index_path.write_text("\n".join(index_lines), encoding="utf-8")
+    return exported
 
 
 def export_csv(clippings: list[Clipping], output_path: str | Path):
@@ -60,7 +68,6 @@ def export_csv(clippings: list[Clipping], output_path: str | Path):
 
 def export_json(clippings: list[Clipping], output_path: str | Path):
     """Export all clippings to a single JSON file."""
-    import json
     path = Path(output_path)
     data = [
         {
@@ -83,7 +90,36 @@ def _safe_filename(name: str) -> str:
     result = name[:60].strip()
     for ch in invalid:
         result = result.replace(ch, "_")
+    result = result.rstrip(". ")
+    result = result or "untitled"
+    reserved = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+    if result.upper() in reserved:
+        result = f"_{result}"
     return result
+
+
+def _unique_filenames(titles) -> dict[str, str]:
+    result: dict[str, str] = {}
+    used: set[str] = set()
+    for title in titles:
+        base = _safe_filename(title)
+        candidate = base
+        if candidate.casefold() in used:
+            digest = hashlib.sha1(title.encode("utf-8")).hexdigest()[:8]
+            candidate = f"{base[:51]}-{digest}"
+        used.add(candidate.casefold())
+        result[title] = candidate
+    return result
+
+
+def _available_path(path: Path, reserved: set[str]) -> Path:
+    candidate = path
+    index = 1
+    while candidate.exists() or str(candidate).casefold() in reserved:
+        candidate = path.with_name(f"{path.stem}-{index}{path.suffix}")
+        index += 1
+    reserved.add(str(candidate).casefold())
+    return candidate
 
 
 def _min_date():

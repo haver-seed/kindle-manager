@@ -28,7 +28,7 @@ def parse_clippings(kindle_root: str | Path) -> list[Clipping]:
     seen: set[tuple[str, str, str]] = set()
     deduped: list[Clipping] = []
     for c in clippings:
-        key = (c.book_title, c.location, c.content)
+        key = (c.book_title, c.author, c.clip_type, c.location, c.content)
         if key not in seen:
             seen.add(key)
             deduped.append(c)
@@ -40,6 +40,35 @@ def group_by_book(clippings: list[Clipping]) -> dict[str, list[Clipping]]:
     for c in clippings:
         groups[c.book_title].append(c)
     return dict(groups)
+
+
+def remove_clipping(kindle_root: str | Path, target: Clipping) -> int:
+    """Remove matching raw entries while preserving every unrelated entry verbatim."""
+    from kindle_manager.core.device_ops import atomic_write_text
+
+    path = Path(kindle_root) / "documents" / "My Clippings.txt"
+    text = path.read_text(encoding="utf-8-sig")
+    entries = text.split("==========")
+    target_key = _clipping_key(target)
+    kept: list[str] = []
+    removed = 0
+    for raw in entries:
+        parsed = _parse_entry(raw.strip()) if raw.strip() else None
+        if parsed and _clipping_key(parsed) == target_key:
+            removed += 1
+        elif raw.strip():
+            kept.append(raw.strip("\r\n"))
+    if not removed:
+        return 0
+    output = "\n==========\n".join(kept)
+    if output:
+        output += "\n==========\n"
+    atomic_write_text(path, output, backup=True)
+    return removed
+
+
+def _clipping_key(c: Clipping) -> tuple[str, str, str, str, str]:
+    return c.book_title, c.author, c.clip_type, c.location, c.content
 
 
 def _parse_entry(entry: str) -> Clipping | None:
@@ -129,6 +158,15 @@ def _parse_meta(line: str) -> tuple[str, int, str, datetime | None]:
 
 def _parse_date(date_str: str) -> datetime | None:
     """Parse a Kindle date string into datetime."""
+    # Python's %p is locale-dependent and normally cannot parse 上午/下午.
+    chinese_period = None
+    if "上午" in date_str:
+        chinese_period = "am"
+        date_str = date_str.replace("上午", "")
+    elif "下午" in date_str:
+        chinese_period = "pm"
+        date_str = date_str.replace("下午", "")
+
     # Remove weekday prefix in Chinese (e.g. "2021年11月20日星期六")
     date_str = re.sub(r"星期[一二三四五六日天]", " ", date_str)
     # Remove weekday in English (e.g. "Monday,")
@@ -138,10 +176,7 @@ def _parse_date(date_str: str) -> datetime | None:
     date_str = re.sub(r"\s+", " ", date_str)
 
     formats = [
-        # Chinese: "2021年11月20日 下午12:21:56"
-        "%Y年%m月%d日 %p%I:%M:%S",
-        # Chinese variant with 上午/下午
-        "%Y年%m月%d日 %p%I:%M:%S",
+        "%Y年%m月%d日 %H:%M:%S",
         # English: "November 20, 2021 12:21:56 PM"
         "%B %d %Y %I:%M:%S %p",
         # English: "Nov 20, 2021 12:21:56 PM"
@@ -149,7 +184,15 @@ def _parse_date(date_str: str) -> datetime | None:
     ]
     for fmt in formats:
         try:
-            return datetime.strptime(date_str, fmt)
+            parsed = datetime.strptime(date_str, fmt)
+            if chinese_period:
+                hour = parsed.hour
+                if chinese_period == "pm" and hour < 12:
+                    hour += 12
+                elif chinese_period == "am" and hour == 12:
+                    hour = 0
+                parsed = parsed.replace(hour=hour)
+            return parsed
         except ValueError:
             continue
     return None

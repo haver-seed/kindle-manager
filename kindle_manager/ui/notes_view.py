@@ -4,24 +4,18 @@ from PySide6.QtWidgets import (
     QPushButton, QFileDialog, QMessageBox, QFrame, QMenu,
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QColor, QAction
-from pathlib import Path
-
-from kindle_manager.core.clippings import parse_clippings, group_by_book
+from PySide6.QtGui import QAction
+from kindle_manager.core.clippings import parse_clippings, group_by_book, remove_clipping
 from kindle_manager.core.exporter import export_markdown, export_csv, export_json
 from kindle_manager.models.clipping import Clipping
+from kindle_manager.ui.theme import ACCENT, ACCENT_SOFT, BG, BORDER, GOLD, MUTED, SURFACE, TEXT
 
 # Cream light palette
-BG = "#faf6f0"
-CARD_BG = "#ffffff"
-SIDEBAR_BG = "#f5f1e9"
-TEXT = "#3d3830"
-MUTED = "#8a8075"
-ACCENT = "#7a9a7a"
-ACCENT2 = "#c4a56a"
-BORDER = "#e5ddd0"
-BADGE_BG = "#dce8d8"
-BADGE_TEXT = "#4a6a4a"
+CARD_BG = SURFACE
+SIDEBAR_BG = SURFACE
+ACCENT2 = GOLD
+BADGE_BG = ACCENT_SOFT
+BADGE_TEXT = ACCENT
 
 
 class NotesView(QWidget):
@@ -41,11 +35,6 @@ class NotesView(QWidget):
 
         # Header
         header = QHBoxLayout()
-        title = QLabel("笔记")
-        title.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
-        title.setStyleSheet(f"color: {TEXT};")
-        header.addWidget(title)
-
         self.count_label = QLabel()
         self.count_label.setStyleSheet(f"color: {MUTED}; font-size: 13px;")
         header.addWidget(self.count_label)
@@ -74,21 +63,7 @@ class NotesView(QWidget):
         # Left: book list
         self.book_list = QListWidget()
         self.book_list.setMaximumWidth(260)
-        self.book_list.setStyleSheet(f"""
-            QListWidget {{
-                background: {SIDEBAR_BG}; color: {TEXT}; border: 1px solid {BORDER};
-                border-radius: 4px; font-size: 13px;
-            }}
-            QListWidget::item {{
-                padding: 10px 14px; border-bottom: 1px solid {BORDER};
-            }}
-            QListWidget::item:selected {{
-                background: {ACCENT}; color: #fff;
-            }}
-            QListWidget::item:hover {{
-                background: #e8e0d4;
-            }}
-        """)
+        self.book_list.setMinimumWidth(220)
         self.book_list.itemClicked.connect(self._on_book_clicked)
         splitter.addWidget(self.book_list)
 
@@ -121,13 +96,23 @@ class NotesView(QWidget):
     def load_clippings(self, kindle_path: str):
         self._kindle_path = kindle_path
         try:
-            self.clippings = parse_clippings(kindle_path)
-            self.groups = group_by_book(self.clippings)
-            self._all_books = sorted(self.groups.keys())
-            self._populate_book_list()
-            self.count_label.setText(f"({len(self.clippings)} 条笔记, {len(self.groups)} 本书)")
+            self.set_clippings(parse_clippings(kindle_path), kindle_path)
         except FileNotFoundError:
-            self.count_label.setText("(未找到 My Clippings.txt)")
+            self.set_clippings([], kindle_path)
+
+    def set_clippings(self, clippings: list[Clipping], kindle_path: str = ""):
+        self._kindle_path = kindle_path
+        self.clippings = clippings
+        self.groups = group_by_book(self.clippings)
+        self._all_books = sorted(self.groups.keys())
+        self._populate_book_list()
+        if self.clippings:
+            self.count_label.setText(f"{len(self.clippings)} 条 · {len(self.groups)} 本书")
+        else:
+            self._clear_cards()
+            self.count_label.setText("暂无笔记")
+            self._empty_label.setText("连接 Kindle 后，这里会整理你的标注与笔记")
+            self._empty_label.show()
 
     def _populate_book_list(self):
         self.book_list.clear()
@@ -162,39 +147,28 @@ class NotesView(QWidget):
 
         self._empty_label.hide()
 
-    def _delete_clipping(self, clipping: Clipping):
-        # Remove from memory
-        self.clippings = [c for c in self.clippings if c is not clipping]
-        self.groups = group_by_book(self.clippings)
-        self._all_books = sorted(self.groups.keys())
-        # Rewrite My Clippings.txt
-        self._rewrite_clippings_file()
-        # Refresh display
-        self._populate_book_list()
-        self.count_label.setText(f"({len(self.clippings)} 条笔记, {len(self.groups)} 本书)")
+    def _clear_cards(self):
+        while self.cards_layout.count() > 1:
+            item = self.cards_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
-    def _rewrite_clippings_file(self):
-        if not self._kindle_path:
+    def _delete_clipping(self, clipping: Clipping):
+        reply = QMessageBox.question(
+            self, "删除这条笔记？",
+            "将从 My Clippings.txt 中删除匹配记录，并自动保留 .bak 备份。",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
             return
-        path = Path(self._kindle_path) / "documents" / "My Clippings.txt"
-        lines = []
-        for c in self.clippings:
-            date_str = ""
-            if c.date:
-                wday = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
-                idx = c.date.weekday()
-                date_str = c.date.strftime(f"%Y年%m月%d日{wday[idx]} %p%I:%M:%S")
-                date_str = date_str.replace("AM", "上午").replace("PM", "下午")
-            author = f" ({c.author})" if c.author else ""
-            type_map = {"highlight": "标注", "bookmark": "书签", "note": "笔记"}
-            clip_type = type_map.get(c.clip_type, "标注")
-            lines.append(f"{c.book_title}{author}")
-            lines.append(f"- 您在位置 #{c.location} 的{clip_type} | 添加于 {date_str}")
-            lines.append("")
-            if c.content:
-                lines.append(c.content)
-            lines.append("==========")
-        path.write_text("\n".join(lines), encoding="utf-8")
+        try:
+            removed = remove_clipping(self._kindle_path, clipping)
+            if not removed:
+                QMessageBox.warning(self, "未删除", "没有在原始文件中找到匹配记录。")
+                return
+            self.load_clippings(self._kindle_path)
+        except OSError as exc:
+            QMessageBox.critical(self, "删除失败", f"未修改笔记文件：\n{exc}")
 
     def _export_md(self):
         if not self.clippings:
@@ -232,7 +206,7 @@ class _ClippingCard(QFrame):
         self.customContextMenuRequested.connect(self._show_menu)
         self.setStyleSheet(f"""
             _ClippingCard {{
-                background: {CARD_BG}; border-radius: 6px;
+                background: {CARD_BG}; border-radius: 11px;
                 border: 1px solid {BORDER};
                 border-left: 3px solid {ACCENT};
             }}

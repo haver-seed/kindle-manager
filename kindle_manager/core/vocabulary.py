@@ -1,6 +1,6 @@
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 
@@ -50,7 +50,8 @@ def read_vocabulary(kindle_root: str | Path) -> list[VocabWord]:
 
             ts = r["timestamp"]
             if ts and ts > 0:
-                dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+                # Display timestamps in the user's local timezone.
+                dt = datetime.fromtimestamp(ts / 1000)
             else:
                 dt = None
 

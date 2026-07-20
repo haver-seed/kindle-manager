@@ -1,25 +1,22 @@
 from collections import Counter
+from html import escape
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame,
-    QScrollArea, QProgressBar,
+    QScrollArea,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont
 
 from kindle_manager.models.book import Book
+from kindle_manager.ui.theme import ACCENT, BG, BORDER, GOLD, MUTED, SURFACE, TEXT
 
-BG = "#faf6f0"
-CARD_BG = "#ffffff"
-TEXT = "#3d3830"
-MUTED = "#6a6058"
-ACCENT = "#7a9a7a"
-ACCENT2 = "#c4a56a"
+CARD_BG = SURFACE
+ACCENT2 = GOLD
 ACCENT3 = "#9a8a7a"
 ACCENT4 = "#8a9ab0"
-BORDER = "#e5ddd0"
-BAR_GREEN = "#7a9a7a"
-BAR_ORANGE = "#c4a56a"
+BAR_GREEN = ACCENT
+BAR_ORANGE = GOLD
 BAR_BLUE = "#8a9ab0"
 BAR_PURPLE = "#9a8a7a"
 
@@ -44,11 +41,6 @@ class StatsView(QWidget):
         cl = QVBoxLayout(container)
         cl.setContentsMargins(28, 20, 28, 28)
         cl.setSpacing(20)
-
-        title = QLabel("统计")
-        title.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
-        title.setStyleSheet(f"color: {TEXT};")
-        cl.addWidget(title)
 
         # Row 1: four stat cards
         cards_row = QHBoxLayout()
@@ -75,7 +67,7 @@ class StatsView(QWidget):
         cl.addLayout(mid_row)
 
         # Row 3: reading progress
-        self.read_panel = _Panel("阅读排行")
+        self.read_panel = _Panel("阅读位置记录 · 仅供参考")
         cl.addWidget(self.read_panel, 1)
 
         cl.addStretch()
@@ -109,7 +101,7 @@ class StatsView(QWidget):
             bar_w = max(int(pct * 3.5), 4)
             fmt_html += (
                 f"<div style='margin:6px 0;'>"
-                f"<span style='color:{TEXT};'>{fmt}</span>"
+                f"<span style='color:{TEXT};'>{escape(fmt)}</span>"
                 f"<span style='color:{MUTED}; font-size:12px;'> {cnt} 本 ({pct:.0f}%)</span>"
                 f"<div style='background:#eee; border-radius:3px; margin-top:2px;'>"
                 f"<div style='background:{color}; height:8px; border-radius:3px; width:{bar_w}px;'></div>"
@@ -142,7 +134,7 @@ class StatsView(QWidget):
                 pct = min(b.last_position / max_pos * 100, 100) if max_pos > 0 else 0
                 rank_html += (
                     f"<div style='margin:4px 0;'>"
-                    f"<span style='color:{TEXT}; font-size:13px;'>{i+1}. {b.title[:30]}</span>"
+                    f"<span style='color:{TEXT}; font-size:13px;'>{i+1}. {escape(b.title[:30])}</span>"
                     f"<span style='color:{MUTED}; font-size:11px;'> {b.last_position//1000}K</span>"
                     f"<div style='background:#eee; border-radius:2px; margin-top:1px;'>"
                     f"<div style='background:{BAR_GREEN}; height:5px; border-radius:2px; width:{max(int(pct), 2)}%;'></div>"

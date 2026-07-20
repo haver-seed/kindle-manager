@@ -4,20 +4,16 @@ from PySide6.QtWidgets import (
     QLabel, QComboBox,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtGui import QFont
 
 from kindle_manager.core.vocabulary import read_vocabulary, VocabWord
 from kindle_manager.ui.widgets import SearchBar
+from kindle_manager.ui.theme import BORDER, MUTED, SURFACE, SURFACE_ALT, TEXT
 
 # Cream light palette
-BG = "#faf6f0"
-TABLE_BG = "#ffffff"
-TABLE_ALT = "#f8f5ee"
-HEADER_BG = "#f0ece4"
-TEXT = "#3d3830"
-MUTED = "#8a8075"
-ACCENT = "#7a9a7a"
-BORDER = "#e5ddd0"
+TABLE_BG = SURFACE
+TABLE_ALT = "#F7F4EE"
+HEADER_BG = SURFACE_ALT
 
 
 class VocabView(QWidget):
@@ -32,11 +28,6 @@ class VocabView(QWidget):
         layout.setSpacing(8)
 
         header = QHBoxLayout()
-        title = QLabel("词库")
-        title.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
-        title.setStyleSheet(f"color: {TEXT};")
-        header.addWidget(title)
-
         self.count_label = QLabel()
         self.count_label.setStyleSheet(f"color: {MUTED}; font-size: 13px;")
         header.addWidget(self.count_label)
@@ -109,11 +100,14 @@ class VocabView(QWidget):
 
     def load_vocab(self, kindle_path: str):
         try:
-            self.words = read_vocabulary(kindle_path)
-            self._populate_table(self.words)
-            self.count_label.setText(f"({len(self.words)} 个单词)")
+            self.set_words(read_vocabulary(kindle_path))
         except FileNotFoundError:
-            self.count_label.setText("(未找到 vocab.db)")
+            self.set_words([])
+
+    def set_words(self, words: list[VocabWord]):
+        self.words = words
+        self._populate_table(self.words)
+        self.count_label.setText(f"{len(self.words)} 个单词" if self.words else "暂无生词")
 
     def _populate_table(self, words: list[VocabWord]):
         self.table.setRowCount(len(words))

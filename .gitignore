@@ -3,6 +3,11 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 # Build artifacts
 build/

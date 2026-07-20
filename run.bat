@@ -1,24 +1,21 @@
 @echo off
 cd /d "%~dp0"
 
-REM Search common Python install locations (pythonw = no console)
-for /d %%d in ("%LOCALAPPDATA%\Programs\Python\Python3*") do (
-    if exist "%%d\pythonw.exe" (
-        start "" "%%d\pythonw.exe" -m kindle_manager.main
-        goto :eof
-    )
+if exist "dist\KindleManager.exe" (
+    start "" "dist\KindleManager.exe"
+    exit /b 0
 )
 
-REM Check Program Files
-for /d %%d in ("C:\Program Files\Python3*") do (
-    if exist "%%d\pythonw.exe" (
-        start "" "%%d\pythonw.exe" -m kindle_manager.main
-        goto :eof
-    )
+if exist ".venv\Scripts\pythonw.exe" (
+    start "" ".venv\Scripts\pythonw.exe" -m kindle_manager.main
+    exit /b 0
 )
 
-REM Fallback: try pythonw on PATH (with console if not found)
-start "" pythonw -m kindle_manager.main 2>nul || python -m kindle_manager.main 2>nul || (
-    echo Python not found. Install: https://www.python.org/downloads/
-    pause
-)
+echo Kindle Manager needs a project virtual environment.
+echo.
+echo Run these commands first:
+echo   py -3 -m venv .venv
+echo   .venv\Scripts\python.exe -m pip install -e .
+echo.
+pause
+exit /b 1

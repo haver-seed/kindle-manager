@@ -1,20 +1,19 @@
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
-    QHBoxLayout, QFrame, QButtonGroup,
+    QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QVBoxLayout, QWidget,
 )
-from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QFont
 
 
 class SearchBar(QWidget):
     text_changed = Signal(str)
 
-    def __init__(self, placeholder: str = "搜索...", parent=None):
+    def __init__(self, placeholder: str = "搜索…", parent=None):
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-
         self.input = QLineEdit()
+        self.input.setObjectName("searchInput")
         self.input.setPlaceholderText(placeholder)
         self.input.setClearButtonEnabled(True)
         self.input.textChanged.connect(self.text_changed.emit)
@@ -22,32 +21,13 @@ class SearchBar(QWidget):
 
 
 class SidebarButton(QPushButton):
-    def __init__(self, text: str, icon: str = "", parent=None):
+    def __init__(self, text: str, icon: str, parent=None):
         super().__init__(parent)
-        self.setText(f"  {icon}  {text}")
+        self.setText(f"{icon}    {text}")
         self.setCheckable(True)
-        self.setFixedHeight(44)
+        self.setFixedHeight(46)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet("""
-            QPushButton {
-                text-align: left;
-                padding: 8px 16px;
-                border: none;
-                border-radius: 6px;
-                font-size: 14px;
-                color: #8a8075;
-                background: transparent;
-            }
-            QPushButton:hover {
-                background: #e8e0d4;
-                color: #5a5045;
-            }
-            QPushButton:checked {
-                background: #7a9a7a;
-                color: #ffffff;
-                font-weight: bold;
-            }
-        """)
+        self.setObjectName("navButton")
 
 
 class Sidebar(QWidget):
@@ -55,49 +35,84 @@ class Sidebar(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(200)
-        self.setStyleSheet("background: #ede7db;")
+        self.setObjectName("sidebar")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setFixedWidth(224)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 16, 8, 16)
-        layout.setSpacing(4)
+        layout.setContentsMargins(18, 24, 18, 20)
+        layout.setSpacing(6)
 
-        title = QLabel("Kindle Manager")
-        title.setFont(QFont("Microsoft YaHei", 14, QFont.Bold))
-        title.setStyleSheet("color: #4a4038; padding: 8px 12px;")
-        layout.addWidget(title)
+        brand = QHBoxLayout()
+        mark = QLabel("K")
+        mark.setObjectName("brandMark")
+        mark.setAlignment(Qt.AlignCenter)
+        mark.setFixedSize(38, 38)
+        brand.addWidget(mark)
+        brand_text = QVBoxLayout()
+        brand_text.setSpacing(0)
+        name = QLabel("Kindle")
+        name.setObjectName("brandName")
+        manager = QLabel("LIBRARY MANAGER")
+        manager.setObjectName("brandCaption")
+        brand_text.addWidget(name)
+        brand_text.addWidget(manager)
+        brand.addLayout(brand_text)
+        brand.addStretch()
+        layout.addLayout(brand)
+        layout.addSpacing(30)
 
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setStyleSheet("color: #d5cebf;")
-        layout.addWidget(line)
-        layout.addSpacing(8)
+        section = QLabel("LIBRARY")
+        section.setObjectName("sidebarSection")
+        layout.addWidget(section)
 
         self.buttons: list[SidebarButton] = []
-        self._btn_group = QButtonGroup(self)
-        self._btn_group.setExclusive(True)
-
+        self._button_group = QButtonGroup(self)
+        self._button_group.setExclusive(True)
         items = [
-            ("书架", "📚"),
-            ("笔记", "📝"),
-            ("词库", "📖"),
-            ("统计", "📊"),
-            ("格式", "📄"),
+            ("书架", "▦"),
+            ("笔记", "✎"),
+            ("生词", "Aa"),
+            ("统计", "◒"),
+            ("格式工具", "⇄"),
         ]
-        for i, (text, icon) in enumerate(items):
-            btn = SidebarButton(text, icon)
-            self._btn_group.addButton(btn, i)
-            btn.setChecked(i == 0)
-            self.buttons.append(btn)
-            layout.addWidget(btn)
-
-        self._btn_group.idClicked.connect(self.navigation_changed.emit)
-
+        for index, (text, icon) in enumerate(items):
+            button = SidebarButton(text, icon)
+            self._button_group.addButton(button, index)
+            button.setChecked(index == 0)
+            self.buttons.append(button)
+            layout.addWidget(button)
+        self._button_group.idClicked.connect(self.navigation_changed.emit)
         layout.addStretch()
 
-        version = QLabel("v0.1.0")
-        version.setStyleSheet("color: #b0a898; padding: 8px 12px; font-size: 11px;")
+        self.device_card = QFrame()
+        self.device_card.setObjectName("deviceCard")
+        device_layout = QVBoxLayout(self.device_card)
+        device_layout.setContentsMargins(14, 12, 14, 12)
+        device_layout.setSpacing(4)
+        self.device_heading = QLabel("●  DEVICE")
+        self.device_heading.setObjectName("deviceHeading")
+        self.device_text = QLabel("正在检测设备")
+        self.device_text.setObjectName("deviceText")
+        self.device_text.setWordWrap(True)
+        device_layout.addWidget(self.device_heading)
+        device_layout.addWidget(self.device_text)
+        layout.addWidget(self.device_card)
+
+        version = QLabel("Kindle Manager  ·  0.2")
+        version.setObjectName("versionLabel")
+        version.setAlignment(Qt.AlignCenter)
         layout.addWidget(version)
+
+    def set_connection(self, state: str, text: str):
+        colors = {
+            "connected": "#77D1AE",
+            "loading": "#E1B56F",
+            "disconnected": "#D98B83",
+        }
+        self.device_heading.setText("●  DEVICE")
+        self.device_heading.setStyleSheet(f"color: {colors.get(state, '#AAB7B1')};")
+        self.device_text.setText(text)
 
 
 class PlaceholderView(QWidget):
@@ -106,5 +121,5 @@ class PlaceholderView(QWidget):
         layout = QVBoxLayout(self)
         label = QLabel(text)
         label.setAlignment(Qt.AlignCenter)
-        label.setStyleSheet("color: #888; font-size: 16px;")
+        label.setObjectName("emptyState")
         layout.addWidget(label)

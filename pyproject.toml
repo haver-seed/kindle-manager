@@ -1,16 +1,29 @@
 [project]
 name = "kindle-manager"
-version = "0.1.0"
-description = "Kindle Book Manager - Desktop GUI Application"
+version = "0.2.0"
+description = "A safe, focused desktop library manager for USB-connected Kindle devices"
 requires-python = ">=3.10"
 dependencies = [
-    "PySide6>=6.5",
-    "ebooklib>=0.18",
+    "PySide6==6.11.1",
 ]
 
 [project.optional-dependencies]
-# Calibre is optional; install separately from https://calibre-ebook.com/download
-# ebooklib enables built-in MOBI/AZW3 -> EPUB conversion
+dev = [
+    "pytest>=8.0,<9",
+    "ruff>=0.6,<1",
+]
 
 [project.scripts]
 kindle-manager = "kindle_manager.main:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100

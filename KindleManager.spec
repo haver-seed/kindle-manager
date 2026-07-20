@@ -6,10 +6,9 @@ a = Analysis(
     binaries=[],
     datas=[
         ('resources/style.qss', 'resources'),
+        ('resources/app_icon.svg', 'resources'),
     ],
     hiddenimports=[
-        'ebooklib',
-        'ebooklib.epub',
         'sqlite3',
         'shutil',
         'subprocess',
@@ -22,6 +21,12 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
+# Qt 6.11 uses the Windows system ICU shim. A developer machine with Conda on
+# PATH may trick PyInstaller into bundling Conda's incompatible ICU 73 DLLs,
+# which makes QtWidgets fail at startup on otherwise clean machines.
+_incompatible_icu = {'icuuc.dll', 'icudt73.dll'}
+a.binaries = [entry for entry in a.binaries if entry[0].lower() not in _incompatible_icu]
 
 pyz = PYZ(a.pure)
 

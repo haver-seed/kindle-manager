@@ -1,75 +1,95 @@
-/* Kindle Manager - Cream Light Theme */
-
-/* Scrollbars */
-QScrollBar:vertical {
-    background: #f0ece4;
-    width: 8px;
-    margin: 0;
+/* Kindle Manager 0.2 — quiet editorial theme */
+* {
+    font-family: "Microsoft YaHei UI", "Segoe UI";
 }
-QScrollBar::handle:vertical {
-    background: #c5bfb2;
-    border-radius: 4px;
-    min-height: 30px;
+QWidget#appRoot, QWidget#workspace {
+    background: #F4F1EA;
+    color: #1F2926;
 }
-QScrollBar::handle:vertical:hover {
-    background: #a8a292;
+QWidget#sidebar {
+    background: #19352F;
 }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0;
+QWidget#sidebar QLabel { background: transparent; }
+QLabel#brandMark {
+    background: #E7D8B8;
+    color: #19352F;
+    border-radius: 10px;
+    font-family: Georgia;
+    font-size: 21px;
+    font-weight: 700;
 }
-QScrollBar:horizontal {
-    background: #f0ece4;
-    height: 8px;
+QLabel#brandName { color: #FFFFFF; font-family: Georgia; font-size: 20px; font-weight: 700; }
+QLabel#brandCaption, QLabel#sidebarSection, QLabel#versionLabel {
+    color: #91A49D; font-size: 9px; letter-spacing: 1px;
 }
-QScrollBar::handle:horizontal {
-    background: #c5bfb2;
-    border-radius: 4px;
-    min-width: 30px;
-}
-QScrollBar::handle:horizontal:hover {
-    background: #a8a292;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0;
-}
-
-/* Tooltips */
-QToolTip {
-    background: #fffef9;
-    color: #3d3830;
-    border: 1px solid #d5cebf;
-    padding: 4px 8px;
-    font-size: 12px;
-}
-
-/* Splitter */
-QSplitter::handle {
-    background: #e0d8c8;
-    width: 2px;
-}
-
-/* ComboBox dropdown */
-QComboBox QAbstractItemView {
-    background: #ffffff;
-    color: #3d3830;
-    selection-background-color: #dce8d8;
-    selection-color: #3d3830;
-    border: 1px solid #d5cebf;
-}
-
-/* Message box */
-QMessageBox {
-    background: #faf6f0;
-    color: #3d3830;
-}
-QMessageBox QPushButton {
-    background: #7a9a7a;
-    color: #ffffff;
+QPushButton#navButton {
+    background: transparent;
+    color: #C6D1CD;
     border: none;
-    border-radius: 4px;
-    padding: 6px 20px;
-    font-size: 12px;
+    border-radius: 9px;
+    padding: 0 14px;
+    text-align: left;
+    font-size: 13px;
 }
-QMessageBox QPushButton:hover {
-    background: #8aae8a;
+QPushButton#navButton:hover { background: #26483F; color: white; }
+QPushButton#navButton:checked { background: #F4F1EA; color: #19352F; font-weight: 700; }
+QFrame#deviceCard { background: #22433B; border: 1px solid #31564D; border-radius: 11px; }
+QLabel#deviceHeading { font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+QLabel#deviceText { color: #D8E1DE; font-size: 11px; }
+
+QLabel#pageTitle { color: #1F2926; font-family: Georgia, "Microsoft YaHei UI"; font-size: 25px; font-weight: 700; }
+QLabel#pageSubtitle { color: #727B76; font-size: 12px; }
+QLabel#scanStatus { color: #727B76; font-size: 11px; padding-right: 8px; }
+QFrame#divider { color: #DDD8CD; max-height: 1px; }
+
+QPushButton {
+    background: #2F7966; color: white; border: none; border-radius: 8px;
+    min-height: 34px; padding: 0 15px; font-size: 12px; font-weight: 600;
 }
+QPushButton:hover { background: #3B8B76; }
+QPushButton:disabled { background: #C6CBC7; color: #F4F4F4; }
+QPushButton#secondaryButton {
+    background: #FCFBF8; color: #34443F; border: 1px solid #D9D5CB;
+}
+QPushButton#secondaryButton:hover { background: #ECE8DE; border-color: #C8C1B5; }
+
+QLineEdit, QComboBox {
+    background: #FCFBF8; color: #27322F; border: 1px solid #D9D5CB;
+    border-radius: 8px; min-height: 34px; padding: 0 11px; font-size: 12px;
+}
+QLineEdit:focus, QComboBox:focus { border: 1px solid #2F7966; }
+QComboBox::drop-down { border: none; width: 22px; }
+QComboBox QAbstractItemView {
+    background: #FCFBF8; color: #27322F; border: 1px solid #D9D5CB;
+    selection-background-color: #DCEAE4; selection-color: #1F2926;
+}
+
+QTableWidget, QListWidget {
+    background: #FCFBF8; color: #27322F; border: 1px solid #DDD8CD;
+    border-radius: 10px; alternate-background-color: #F7F4EE;
+    selection-background-color: #DCEAE4; selection-color: #1F2926;
+}
+QTableWidget::item { padding: 8px 10px; border-bottom: 1px solid #ECE8DE; }
+QHeaderView::section {
+    background: #ECE8DE; color: #6F7772; border: none;
+    border-bottom: 1px solid #D9D5CB; padding: 8px 10px; font-size: 11px; font-weight: 700;
+}
+QListWidget::item { padding: 10px 12px; border-bottom: 1px solid #ECE8DE; }
+QListWidget::item:selected { background: #DCEAE4; color: #214A3F; border-left: 3px solid #2F7966; }
+
+QScrollArea { background: transparent; border: none; }
+QScrollBar:vertical { background: transparent; width: 9px; margin: 2px; }
+QScrollBar::handle:vertical { background: #C9C5BC; border-radius: 4px; min-height: 28px; }
+QScrollBar::handle:vertical:hover { background: #9FA7A2; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar:horizontal { background: transparent; height: 9px; }
+QScrollBar::handle:horizontal { background: #C9C5BC; border-radius: 4px; min-width: 28px; }
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
+
+QMenu { background: #FCFBF8; color: #27322F; border: 1px solid #D9D5CB; padding: 6px; }
+QMenu::item { padding: 8px 28px 8px 14px; border-radius: 5px; }
+QMenu::item:selected { background: #DCEAE4; }
+QToolTip { background: #19352F; color: white; border: none; padding: 6px 9px; }
+QSplitter::handle { background: #DDD8CD; width: 1px; }
+QMessageBox { background: #F4F1EA; color: #1F2926; }
+QLabel#emptyState { color: #7C8580; font-size: 13px; padding: 48px; }

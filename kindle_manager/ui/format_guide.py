@@ -2,20 +2,18 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QLabel,
     QComboBox, QPushButton, QMessageBox, QFrame,
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QThreadPool
 from PySide6.QtGui import QFont
+from pathlib import Path
 
 from kindle_manager.core.converter import (
     TARGET_FORMATS, find_calibre, convert_ebook,
     get_target_path, open_calibre_download,
 )
+from kindle_manager.ui.workers import TaskWorker
+from kindle_manager.ui.theme import ACCENT, BG, BORDER, MUTED, SURFACE, TEXT
 
-TEXT = "#3d3830"
-MUTED = "#6a6058"
-ACCENT = "#7a9a7a"
-CARD_BG = "#ffffff"
-BORDER = "#e5ddd0"
-BG = "#faf6f0"
+CARD_BG = SURFACE
 
 GUIDE_HTML = f"""
 <div style="font-family: 'Microsoft YaHei', sans-serif; color:{TEXT}; line-height:1.8;">
@@ -111,6 +109,7 @@ class FormatGuideView(QWidget):
         super().__init__(parent)
         self.books = []
         self._local_file = ""
+        self._worker = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -147,8 +146,8 @@ class FormatGuideView(QWidget):
 
         # Calibre status
         calibre_ok = find_calibre() is not None
-        status_text = ("已检测到 Calibre，支持全格式转换" if calibre_ok
-                       else "未检测到 Calibre — 仅支持 MOBI/AZW3 → EPUB 内置转换")
+        status_text = ("Calibre 已就绪 · 支持可靠的多格式转换" if calibre_ok
+                       else "未检测到 Calibre · 安装后可启用格式转换")
         calibre_status = QLabel(status_text)
         calibre_status.setStyleSheet(
             f"color: {'#7a9a7a' if calibre_ok else '#c4a56a'}; font-size: 12px;"
@@ -174,6 +173,7 @@ class FormatGuideView(QWidget):
                 selection-background-color: #dce8d8;
             }}
         """)
+        self.book_combo.currentIndexChanged.connect(self._on_book_source_changed)
         row.addWidget(self.book_combo)
 
         browse_btn = QPushButton("浏览...")
@@ -210,7 +210,7 @@ class FormatGuideView(QWidget):
 
         if not calibre_ok:
             install_btn = QPushButton("安装 Calibre")
-            install_btn.setStyleSheet(f"""
+            install_btn.setStyleSheet("""
                 QPushButton {{
                     background: #c4a56a; color: #fff; border: none;
                     border-radius: 4px; padding: 7px 16px;
@@ -231,7 +231,7 @@ class FormatGuideView(QWidget):
         guide.setWordWrap(True)
         guide.setOpenExternalLinks(True)
         guide.setTextFormat(Qt.RichText)
-        guide.setStyleSheet(f"""
+        guide.setStyleSheet("""
             QLabel {{
                 background: transparent;
                 padding: 8px 0;
@@ -246,11 +246,17 @@ class FormatGuideView(QWidget):
 
     def set_books(self, books):
         self.books = books
+        self._local_file = ""
         self.book_combo.clear()
         self.book_combo.addItem("— 选择 Kindle 上的书籍 —", None)
         for b in books:
             label = f"{b.title[:50]}  [{b.format_display}]"
             self.book_combo.addItem(label, b)
+
+    def _on_book_source_changed(self, index: int):
+        if index > 0:
+            self._local_file = ""
+            self.book_combo.setToolTip("")
 
     def _browse_file(self):
         from PySide6.QtWidgets import QFileDialog
@@ -261,6 +267,7 @@ class FormatGuideView(QWidget):
         if f:
             self.book_combo.setCurrentIndex(0)
             self._local_file = f
+            self.book_combo.setItemText(0, f"本地文件 · {Path(f).name}")
             self.book_combo.setToolTip(f"已选择本地文件: {f}")
 
     def _on_format_changed(self, fmt: str):
@@ -313,7 +320,13 @@ class FormatGuideView(QWidget):
         output = get_target_path(src_path, target)
         self.convert_btn.setEnabled(False)
         self.convert_btn.setText("转换中...")
-        ok, msg = convert_ebook(src_path, output, target)
+        self._worker = TaskWorker(convert_ebook, src_path, output, target)
+        self._worker.signals.result.connect(self._conversion_finished)
+        self._worker.signals.error.connect(self._conversion_error)
+        QThreadPool.globalInstance().start(self._worker)
+
+    def _conversion_finished(self, result):
+        ok, msg = result
         self.convert_btn.setEnabled(True)
         self.convert_btn.setText("开始转换")
 
@@ -330,3 +343,8 @@ class FormatGuideView(QWidget):
                     open_calibre_download()
             else:
                 QMessageBox.warning(self, "转换失败", msg)
+
+    def _conversion_error(self, details: str):
+        self.convert_btn.setEnabled(True)
+        self.convert_btn.setText("开始转换")
+        QMessageBox.critical(self, "转换异常", details.splitlines()[-1] if details else "未知错误")

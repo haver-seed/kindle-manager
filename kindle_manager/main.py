@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 from PySide6.QtWidgets import QApplication
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QIcon
 
 from kindle_manager.ui.main_window import MainWindow, detect_kindle
 
@@ -18,7 +18,12 @@ def _resource_path(relative: str) -> Path:
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("Kindle Manager")
+    app.setApplicationVersion("0.2.0")
     app.setFont(QFont("Microsoft YaHei", 9))
+
+    icon_path = _resource_path("resources/app_icon.svg")
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
 
     qss_path = _resource_path("resources/style.qss")
     if qss_path.exists():

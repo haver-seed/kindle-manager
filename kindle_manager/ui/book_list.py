@@ -1,41 +1,38 @@
-import os
 import subprocess
-import shutil
 from pathlib import Path
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QMenu, QMessageBox, QApplication, QScrollArea, QGridLayout,
     QFrame, QFileDialog, QStackedWidget, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QSizePolicy, QComboBox,
+    QHeaderView, QAbstractItemView, QComboBox,
 )
-from PySide6.QtCore import Qt, Signal, QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QColor, QPixmap, QAction, QPainter
 
 from kindle_manager.models.book import Book
 from kindle_manager.core.clippings import parse_clippings, group_by_book
 from kindle_manager.core.exporter import export_markdown
+from kindle_manager.core.device_ops import import_books, move_book_to_trash
 from kindle_manager.ui.widgets import SearchBar
+from kindle_manager.ui.theme import (
+    ACCENT, ACCENT_SOFT, BG, BORDER, GOLD, MUTED, SURFACE, SURFACE_ALT, TEXT,
+)
 
 # ── palette ──
-BG = "#faf6f0"
-CARD_BG = "#ffffff"
-TABLE_ALT = "#f8f5ee"
-TEXT = "#3d3830"
-MUTED = "#8a8075"
-ACCENT = "#7a9a7a"
-ACCENT2 = "#c4a56a"
-BORDER = "#e5ddd0"
-CARD_HOVER = "#f0ebe0"
-CARD_SELECTED = "#dce8d8"
-HEADER_BG = "#f0ece4"
+CARD_BG = SURFACE
+TABLE_ALT = "#F7F4EE"
+ACCENT2 = GOLD
+CARD_HOVER = SURFACE_ALT
+CARD_SELECTED = ACCENT_SOFT
+HEADER_BG = SURFACE_ALT
 
-CARD_W, CARD_H, COVER_H = 140, 210, 175
+CARD_W, CARD_H, COVER_H = 164, 246, 198
 
 _BTN = f"""
     QPushButton {{
         background: #fff; color: {TEXT}; border: 1px solid {BORDER};
-        border-radius: 4px; padding: 5px 14px; font-size: 12px;
+        border-radius: 8px; padding: 7px 15px; font-size: 12px;
     }}
     QPushButton:hover {{ background: #f0ebe0; }}
     QPushButton:checked {{ background: {ACCENT}; color: #fff; }}
@@ -97,19 +94,19 @@ class BookCard(QFrame):
                 pix = pix.scaled(CARD_W - 16, COVER_H - 12, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             self.cover_label.setPixmap(pix)
         else:
-            self.cover_label.setText(book.title[:6])
+            self.cover_label.setText(f"{book.title[:10]}\n\n{book.format_display}")
             self.cover_label.setStyleSheet(
-                f"background: #e8e2d6; color: {MUTED}; font-size: 18px; "
-                "font-weight: bold; border-radius: 4px;"
+                f"background: #E8E0CF; color: {TEXT}; font-size: 15px; "
+                "font-weight: bold; border-radius: 9px; padding: 12px;"
             )
         layout.addWidget(self.cover_label, 0, Qt.AlignCenter)
 
-        t = book.title[:20] + ("…" if len(book.title) > 20 else "")
+        t = book.title[:24] + ("…" if len(book.title) > 24 else "")
         self.title_label = QLabel(t)
         self.title_label.setAlignment(Qt.AlignCenter)
         self.title_label.setWordWrap(True)
         self.title_label.setFixedWidth(CARD_W - 12)
-        self.title_label.setStyleSheet(f"color: {TEXT}; font-size: 11px;")
+        self.title_label.setStyleSheet(f"color: {TEXT}; font-size: 12px; font-weight: 600;")
         self.title_label.setToolTip(f"{book.title}\n{book.format_display} · {book.size_display}")
         layout.addWidget(self.title_label)
 
@@ -117,8 +114,8 @@ class BookCard(QFrame):
 
     def _apply_style(self):
         self.setStyleSheet(
-            f"BookCard {{ background: {CARD_BG}; border: 1px solid {BORDER}; border-radius: 6px; }}"
-            f"BookCard:hover {{ background: {CARD_HOVER}; border: 1px solid #c5bfb2; }}"
+            f"BookCard {{ background: {CARD_BG}; border: 1px solid {BORDER}; border-radius: 12px; }}"
+            f"BookCard:hover {{ background: {CARD_HOVER}; border: 1px solid #BEB8AD; }}"
         )
 
     def set_selected(self, selected: bool):
@@ -126,7 +123,7 @@ class BookCard(QFrame):
         if selected:
             self.setStyleSheet(
                 f"BookCard {{ background: {CARD_SELECTED}; "
-                f"border: 2px solid {ACCENT}; border-radius: 6px; }}"
+                f"border: 2px solid {ACCENT}; border-radius: 12px; }}"
             )
         else:
             self._apply_style()
@@ -234,13 +231,21 @@ class _BookGridWidget(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setStyleSheet(f"QScrollArea {{ background: {BG}; border: none; }}")
+        scroll.setStyleSheet(
+            f"QScrollArea {{ background: {BG}; border: none; }}"
+            f"QScrollArea > QWidget > QWidget {{ background: {BG}; }}"
+        )
 
         self.container = QWidget()
         self.grid = QGridLayout(self.container)
         self.grid.setContentsMargins(4, 4, 4, 16)
         self.grid.setSpacing(12)
         self.grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+
+        self.empty_label = QLabel("连接 Kindle 后，你的书籍会出现在这里\n也可以使用右上角的“导入书籍”添加本地文件")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setStyleSheet(f"color: {MUTED}; font-size: 13px; padding: 80px;")
+        self.grid.addWidget(self.empty_label, 0, 0, 1, 4)
 
         scroll.setWidget(self.container)
         layout.addWidget(scroll)
@@ -252,6 +257,7 @@ class _BookGridWidget(QWidget):
             c.deleteLater()
         self._cards.clear()
         self._selected.clear()
+        self.empty_label.setVisible(not books)
 
         cols = max(1, (self.width() - 30) // (CARD_W + 12))
         for i, book in enumerate(books):
@@ -310,10 +316,6 @@ class BookListView(QWidget):
         self.kindle_path = kindle_path
         self.books: list[Book] = []
         self._grid_mode = True
-        self._refresh_overlay: QLabel | None = None
-        self._refresh_timer = QTimer(self)
-        self._refresh_timer.setSingleShot(True)
-        self._refresh_timer.timeout.connect(self._hide_refresh_overlay)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -323,11 +325,6 @@ class BookListView(QWidget):
 
         # ── Header ──
         h = QHBoxLayout()
-        title = QLabel("书架")
-        title.setFont(QFont("Microsoft YaHei", 18, QFont.Bold))
-        title.setStyleSheet(f"color: {TEXT};")
-        h.addWidget(title)
-
         self.count_label = QLabel()
         self.count_label.setStyleSheet(f"color: {MUTED}; font-size: 13px;")
         h.addWidget(self.count_label)
@@ -358,15 +355,10 @@ class BookListView(QWidget):
         h.addWidget(self.filter_combo)
         h.addStretch()
 
-        import_btn = QPushButton("+ 导入书籍")
+        import_btn = QPushButton("＋  导入书籍")
         import_btn.setStyleSheet(_BTN)
         import_btn.clicked.connect(self._import_books)
         h.addWidget(import_btn)
-
-        refresh_btn = QPushButton("刷新")
-        refresh_btn.setStyleSheet(_BTN)
-        refresh_btn.clicked.connect(self._do_refresh)
-        h.addWidget(refresh_btn)
 
         self.toggle_switch = _SlideSwitch()
         self.toggle_switch.toggled.connect(self._toggle_view)
@@ -450,34 +442,6 @@ class BookListView(QWidget):
         self._grid_mode = not self._grid_mode
         self.stack.setCurrentIndex(0 if self._grid_mode else 1)
 
-    def _do_refresh(self):
-        self._show_refresh_overlay()
-        self.refresh_requested.emit()
-
-    def _show_refresh_overlay(self):
-        if self._refresh_overlay:
-            return
-        self._refresh_overlay = QLabel("⟳ 正在刷新...", self)
-        self._refresh_overlay.setAlignment(Qt.AlignCenter)
-        self._refresh_overlay.setStyleSheet(
-            "QLabel { background: rgba(255,255,255,180); color: #7a9a7a; "
-            "font-size: 20px; font-weight: bold; border-radius: 8px; }"
-        )
-        self._refresh_overlay.setGeometry(self.stack.geometry())
-        self._refresh_overlay.show()
-        self._refresh_timer.start(600)
-
-    def _hide_refresh_overlay(self):
-        if self._refresh_overlay:
-            self._refresh_overlay.hide()
-            self._refresh_overlay.deleteLater()
-            self._refresh_overlay = None
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if self._refresh_overlay:
-            self._refresh_overlay.setGeometry(self.stack.geometry())
-
     # ── context menus ──
 
     def _show_grid_menu(self, pos):
@@ -560,13 +524,7 @@ class BookListView(QWidget):
             return
         d = QFileDialog.getExistingDirectory(self, "选择导出目录")
         if d:
-            import tempfile
-            tmp = Path(tempfile.mkdtemp())
-            export_markdown(book_clips, tmp)
-            src = tmp / f"{_safe_name(b.title)}.md"
-            if src.exists():
-                shutil.copy(src, Path(d) / f"{_safe_name(b.title)}.md")
-            shutil.rmtree(tmp)
+            export_markdown(book_clips, d)
             QMessageBox.information(self, "导出完成", f"笔记已导出到:\n{d}")
 
     def _show_props(self, b: Book):
@@ -582,26 +540,32 @@ class BookListView(QWidget):
     def _import_books(self):
         files, _ = QFileDialog.getOpenFileNames(
             self, "选择要导入的电子书", "",
-            "电子书 (*.epub *.mobi *.azw3 *.pdf *.txt *.azw);;所有文件 (*)",
+            "Kindle 可读文件 (*.mobi *.azw3 *.pdf *.txt *.azw);;EPUB（请先转换） (*.epub);;所有文件 (*)",
         )
         if not files:
             return
-        dest = Path(self.kindle_path) / "documents" / "Downloads" / "Items01" if self.kindle_path else None
-        if not dest or not dest.exists():
+        epub_files = [f for f in files if Path(f).suffix.lower() == ".epub"]
+        if epub_files:
+            QMessageBox.warning(
+                self, "EPUB 需要先转换",
+                "Kindle 无法通过 USB 直接阅读 EPUB。请先在“格式工具”中转换为 AZW3，"
+                "或使用 Send to Kindle。\n\n本次未导入 EPUB 文件。",
+            )
+            files = [f for f in files if Path(f).suffix.lower() != ".epub"]
+        if not files:
+            return
+        if not self.kindle_path:
             QMessageBox.warning(self, "导入失败", "未检测到 Kindle 设备，无法导入。")
             return
-        imported = 0
-        for src in files:
-            sp = Path(src)
-            if not (dest / sp.name).exists():
-                try:
-                    shutil.copy2(sp, dest / sp.name)
-                    imported += 1
-                except OSError:
-                    pass
+        results = import_books(self.kindle_path, files)
+        imported = sum(r.ok for r in results)
+        failed = [r.message for r in results if not r.ok]
         if imported:
             self.refresh_requested.emit()
-            QMessageBox.information(self, "导入完成", f"成功导入 {imported} 本书籍。")
+        message = f"成功导入 {imported} 本书籍。"
+        if failed:
+            message += "\n\n" + "\n".join(failed[:8])
+        QMessageBox.information(self, "导入结果", message)
 
     def _batch_delete(self, books: list[Book]):
         reply = QMessageBox.warning(
@@ -613,16 +577,18 @@ class BookListView(QWidget):
         )
         if reply != QMessageBox.Yes:
             return
-        for b in books:
-            for p in [b.file_path, b.sdr_path]:
-                if p and p.exists():
-                    try:
-                        (shutil.rmtree if p.is_dir() else Path.unlink)(p)
-                    except OSError:
-                        pass
-        self.books = [b for b in self.books if b not in books]
+        results = [(b, move_book_to_trash(self.kindle_path, b)) for b in books]
+        removed = [b for b, result in results if result.ok]
+        self.books = [b for b in self.books if b not in removed]
         self._sort_and_filter()
-        self.book_deleted.emit()
+        if removed:
+            self.book_deleted.emit()
+        failed = [result.message for _, result in results if not result.ok]
+        QMessageBox.information(
+            self, "删除结果",
+            f"已移入可恢复目录：{len(removed)} 本。" +
+            (("\n\n" + "\n".join(failed[:8])) if failed else ""),
+        )
 
     def _batch_export(self, books: list[Book]):
         d = QFileDialog.getExistingDirectory(self, "选择导出目录")
@@ -633,18 +599,10 @@ class BookListView(QWidget):
         except Exception:
             all_clips = []
         exported = 0
-        for b in books:
-            clips = [c for c in all_clips if c.book_title == b.title]
-            if not clips:
-                continue
-            import tempfile
-            tmp = Path(tempfile.mkdtemp())
-            export_markdown(clips, tmp)
-            src = tmp / f"{_safe_name(b.title)}.md"
-            if src.exists():
-                shutil.copy(src, Path(d) / f"{_safe_name(b.title)}.md")
-                exported += 1
-            shutil.rmtree(tmp)
+        selected_titles = {b.title for b in books}
+        clips = [c for c in all_clips if c.book_title in selected_titles]
+        if clips:
+            exported = len(export_markdown(clips, d))
         QMessageBox.information(self, "导出完成", f"已导出 {exported} 本书的笔记到:\n{d}")
 
     def _delete_book(self, b: Book):
@@ -657,15 +615,14 @@ class BookListView(QWidget):
         )
         if reply != QMessageBox.Yes:
             return
-        for p in [b.file_path, b.sdr_path]:
-            if p and p.exists():
-                try:
-                    (shutil.rmtree if p.is_dir() else Path.unlink)(p)
-                except OSError:
-                    pass
-        self.books = [x for x in self.books if x.file_path != b.file_path]
-        self.set_books(self.books)
-        self.book_deleted.emit()
+        result = move_book_to_trash(self.kindle_path, b)
+        if result.ok:
+            self.books = [x for x in self.books if x.file_path != b.file_path]
+            self.set_books(self.books)
+            self.book_deleted.emit()
+            QMessageBox.information(self, "已移入回收目录", result.message)
+        else:
+            QMessageBox.critical(self, "删除失败", result.message)
 
 
 class _SlideSwitch(QWidget):
@@ -708,11 +665,3 @@ class _SlideSwitch(QWidget):
         p.drawText(50, 2, 49, 26, Qt.AlignCenter, "列表")
 
         p.end()
-
-
-def _safe_name(name: str) -> str:
-    invalid = '<>:"/\\|?*'
-    r = name[:60].strip()
-    for ch in invalid:
-        r = r.replace(ch, "_")
-    return r
